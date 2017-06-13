@@ -59,6 +59,7 @@ lr = 0.005
 
 x = tf.placeholder('float', [None, 32, 32, 3])
 y = tf.placeholder('float')
+keep_prob = tf.placeholder(tf.float32)
 
 def conv2d(x, w):
     return tf.nn.conv2d(x, w, strides = [1, 1, 1, 1], padding = 'SAME')
@@ -69,12 +70,14 @@ def maxpool2d(x):
 def convolutional_neural_network(x):
     weights = {'W_conv1':tf.Variable(tf.random_normal([5, 5, 3, 32])),
                'W_conv2':tf.Variable(tf.random_normal([5, 5, 32, 64])),
-               'W_fc':tf.Variable(tf.random_normal([8*8*64, 1024])),
+               'W_fc1':tf.Variable(tf.random_normal([8*8*64, 1024])),
+               'W_fc2':tf.Variable(tf.random_normal([1024, 1024])),
                'out':tf.Variable(tf.random_normal([1024, n_classes]))}
 
     biases = {'b_conv1':tf.Variable(tf.random_normal([32])),
                'b_conv2':tf.Variable(tf.random_normal([64])),
-               'b_fc':tf.Variable(tf.random_normal([1024])),
+               'b_fc1':tf.Variable(tf.random_normal([1024])),
+               'b_fc2':tf.Variable(tf.random_normal([1024])),
                'out':tf.Variable(tf.random_normal([n_classes]))}
 
     x = tf.reshape(x, [-1, 32, 32, 3])
@@ -85,11 +88,14 @@ def convolutional_neural_network(x):
     conv2 = conv2d(conv1, weights['W_conv2'] + biases['b_conv2'])
     conv2 = maxpool2d(conv2)
 
-    fc = tf.reshape(conv2, [-1, 8*8*64])
-    print(fc.get_shape())
-    fc = tf.nn.relu(tf.matmul(fc, weights['W_fc']) + biases['b_fc'])
+    fc1 = tf.reshape(conv2, [-1, 8*8*64])
+    fc1 = tf.nn.relu(tf.matmul(fc1, weights['W_fc1']) + biases['b_fc1'])
+    
+    fc2 = tf.nn.relu(tf.matmul(fc1, weights['W_fc2']) + biases['b_fc2'])
+    
+    fc2_dropout = tf.nn.dropout(fc2, keep_prob)
 
-    output = tf.matmul(fc, weights['out']) + biases['out']
+    output = tf.matmul(fc2_dropout, weights['out']) + biases['out']
 
     return output
 
@@ -111,7 +117,7 @@ def train_neural_network(x):
                 batch_x = np.array(train_x[start:end])
                 batch_y = np.array(train_y[start:end])
 
-                _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y})
+                _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y, keep_prob: 0.7})
                 epoch_loss += c
                 i+=batch_size
 
@@ -122,7 +128,7 @@ def train_neural_network(x):
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
         prediction = tf.argmax(prediction, 1)
         predi = sess.run(prediction, {x : test_x})
-        print('Accuracy:',accuracy.eval({x:test_x, y:test_y}))
+        print('Accuracy:',accuracy.eval({x:test_x, y:test_y, keep_prob: 1.0}))
         return predi
     
 predi = train_neural_network(x)
